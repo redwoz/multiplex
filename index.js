@@ -382,7 +382,15 @@ Multiplex.prototype._onuncork = function (fn) {
 }
 
 Multiplex.prototype._read = function () {
-  while (this._ondrain.length) this._ondrain.shift()()
+  var state = this._readableState;
+  // Do a check here against the current length of the internal multiplex read buffer
+  // and only call the channel drain callbacks if we haven't overflowed the internal buffer too badly
+  // Previously, the multiplexer would allow unchecked growth of the internal read buffer and
+  // would not deal appropriate with backpressure
+  // This isn't a great solution, but it fixes the apparent issues for now
+  while (this._ondrain.length && (state.length < state.highWaterMark * 2)) {
+    this._ondrain.shift()()
+  }
 }
 
 Multiplex.prototype._clear = function () {
